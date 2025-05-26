@@ -1,6 +1,6 @@
 db_config = {
     "host": "localhost",
-    "user": "root",
-    "password": "password",  # Ganti sesuai konfigurasi MySQL kamu
+    "user": "ats_user",
+    "password": "Ats_Pass11",
     "database": "cv_ats"
 }
