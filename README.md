@@ -20,3 +20,8 @@ USE cv_ats;
 SELECT * FROM ApplicantProfile;
 SELECT * FROM ApplicationDetail;
 '''
+
+## Cara Menjalankan Program
+'''
+python3 src/search_kmp_terminal.py
+'''
