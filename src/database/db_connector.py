@@ -1,5 +1,5 @@
 import mysql.connector
-from db_config import db_config
+from .db_config import db_config
 
 def connect():
     return mysql.connector.connect(**db_config)

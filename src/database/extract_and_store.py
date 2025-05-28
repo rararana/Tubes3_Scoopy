@@ -3,7 +3,7 @@ import re
 import os
 import json
 from datetime import datetime
-from db_connector import insert_applicant, insert_application_detail
+from .db_connector import insert_applicant, insert_application_detail
 
 def extract_text_from_pdf(pdf_path):
     doc = fitz.open(pdf_path)
