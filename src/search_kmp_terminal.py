@@ -270,6 +270,137 @@ def show_context(text, positions, keyword, context_length=50):
         contexts.append(f"...{highlighted}...")
     return contexts
 
+# === PENCARIAN KMP MULTIPLE KEYWORDS ===
+def search_multiple_keywords_kmp(keywords, files, applicant_db, cv_mapping):
+    """Search multiple keywords using KMP algorithm"""
+    result = []
+    keywords_lower = [kw.strip().lower() for kw in keywords if kw.strip()]
+    
+    print(f"🔍 Searching for {len(keywords_lower)} keywords: {', '.join(keywords_lower)}")
+    print(f"📄 Scanning {len(files)} CV files...")
+    
+    for filename, text in files:
+        keyword_results = {}
+        total_matches = 0
+        all_positions = []
+        
+        # Search each keyword in the current file
+        for keyword in keywords_lower:
+            positions = kmp_search(text, keyword)
+            if positions:
+                keyword_results[keyword] = {
+                    'count': len(positions),
+                    'positions': positions[:3]  # Store first 3 positions for context
+                }
+                total_matches += len(positions)
+                all_positions.extend(positions)
+        
+        # Only include if ALL keywords are found (AND logic)
+        if len(keyword_results) == len(keywords_lower):
+            name = get_applicant_name_by_cv(applicant_db, cv_mapping, filename.replace(".txt", ""))
+            result.append({
+                "name": name,
+                "filename": filename,
+                "total_count": total_matches,
+                "keyword_details": keyword_results,
+                "keywords_found": len(keyword_results),
+                "all_positions": sorted(all_positions)[:10]  # First 10 positions for context
+            })
+    
+    print(f"🎯 Found {len(result)} CVs containing ALL keywords")
+    
+    # Sort by total matches (higher = better match)
+    return sorted(result, key=lambda x: x["total_count"], reverse=True)
+
+# === PENCARIAN ALTERNATIF (OR LOGIC) ===
+def search_multiple_keywords_or(keywords, files, applicant_db, cv_mapping):
+    """Search multiple keywords with OR logic (any keyword found)"""
+    result = []
+    keywords_lower = [kw.strip().lower() for kw in keywords if kw.strip()]
+    
+    print(f"🔍 Searching for ANY of {len(keywords_lower)} keywords: {', '.join(keywords_lower)}")
+    print(f"📄 Scanning {len(files)} CV files...")
+    
+    for filename, text in files:
+        keyword_results = {}
+        total_matches = 0
+        all_positions = []
+        
+        # Search each keyword in the current file
+        for keyword in keywords_lower:
+            positions = kmp_search(text, keyword)
+            if positions:
+                keyword_results[keyword] = {
+                    'count': len(positions),
+                    'positions': positions[:3]
+                }
+                total_matches += len(positions)
+                all_positions.extend(positions)
+        
+        # Include if ANY keyword is found (OR logic)
+        if keyword_results:
+            name = get_applicant_name_by_cv(applicant_db, cv_mapping, filename.replace(".txt", ""))
+            result.append({
+                "name": name,
+                "filename": filename,
+                "total_count": total_matches,
+                "keyword_details": keyword_results,
+                "keywords_found": len(keyword_results),
+                "all_positions": sorted(all_positions)[:10]
+            })
+    
+    print(f"🎯 Found {len(result)} CVs containing ANY of the keywords")
+    
+    # Sort by number of different keywords found, then by total matches
+    return sorted(result, key=lambda x: (x["keywords_found"], x["total_count"]), reverse=True)
+
+# === TAMPILKAN CONTEXT UNTUK MULTIPLE KEYWORDS ===
+def show_context_multiple(text, keyword_details, context_length=50):
+    """Show context around found keywords for multiple keywords"""
+    for keyword, details in keyword_details.items():
+        positions = details['positions']
+        count = details['count']
+        
+        print(f"   🔍 '{keyword.upper()}': {count} kali ditemukan")
+        
+        # Use same logic as single keyword context
+        contexts = show_context(text, positions, keyword, context_length)
+        for i, ctx in enumerate(contexts, 1):
+            print(f"     📝 Context {i}: {ctx}")
+        
+        # Add separator between different keywords for readability
+        if len(keyword_details) > 1:
+            print("     " + "-" * 40)
+
+# === TAMPILKAN CONTEXT (Updated untuk konsistensi) ===
+def show_context(text, positions, keyword, context_length=50):
+    """Show context around found keywords"""
+    contexts = []
+    for pos in positions[:3]:  # Show max 3 contexts
+        start = max(0, pos - context_length)
+        end = min(len(text), pos + len(keyword) + context_length)
+        context = text[start:end]
+        
+        # Highlight keyword (case insensitive)
+        highlighted = context.lower().replace(keyword.lower(), keyword.upper())
+        contexts.append(f"...{highlighted}...")
+    
+    return contexts
+
+# === PARSE KEYWORDS INPUT ===
+def parse_keywords_input(input_text):
+    """Parse keywords input - support comma separation and space separation"""
+    # Try comma separation first
+    if ',' in input_text:
+        keywords = [kw.strip() for kw in input_text.split(',')]
+    else:
+        # Space separation for single words
+        keywords = input_text.split()
+    
+    # Filter out empty keywords
+    keywords = [kw for kw in keywords if kw.strip()]
+    return keywords
+
 # === MAIN ===
 def main():
     print("🚀 Initializing CV Search System...")
@@ -287,18 +418,44 @@ def main():
         return
     
     print("\n=== KMP CV Keyword Search ===")
-    print("💡 Tips: Gunakan keyword seperti 'python', 'java', 'management', 'experience'")
+    print("💡 Tips:")
+    print("   - Single keyword: python")
+    print("   - Multiple keywords (AND): react, express, html")
+    print("   - Multiple keywords (spaces): react express html")
     
     while True:
         print("\n" + "="*50)
-        keyword = input("🔍 Masukkan keyword (atau 'quit' untuk keluar): ").strip()
+        keyword_input = input("🔍 Masukkan keyword(s) (atau 'quit' untuk keluar): ").strip()
         
-        if keyword.lower() == 'quit':
+        if keyword_input.lower() == 'quit':
             break
         
-        if not keyword:
+        if not keyword_input:
             print("⚠️  Keyword tidak boleh kosong!")
             continue
+
+        # Parse keywords
+        keywords = parse_keywords_input(keyword_input)
+        
+        if len(keywords) == 1:
+            print(f"🎯 Mode: Single keyword search")
+        else:
+            print(f"🎯 Mode: Multiple keywords search ({len(keywords)} keywords)")
+            print(f"📝 Keywords: {', '.join(keywords)}")
+            
+            # Ask for search logic if multiple keywords
+            while True:
+                logic_choice = input("🔗 Search logic - (and/or)? [and]: ").lower().strip()
+                if logic_choice in ['', 'and']:
+                    search_logic = 'and'
+                    print("✅ Using AND logic: CV must contain ALL keywords")
+                    break
+                elif logic_choice == 'or':
+                    search_logic = 'or'
+                    print("✅ Using OR logic: CV can contain ANY keyword")
+                    break
+                else:
+                    print("⚠️  Pilih 'and' atau 'or'!")
 
         # Input untuk jumlah hasil yang ditampilkan
         while True:
@@ -306,10 +463,10 @@ def main():
                 max_results_input = input("📊 Berapa hasil teratas yang ingin ditampilkan? (default: 10, 'all' untuk semua): ").strip()
                 
                 if max_results_input.lower() == 'all':
-                    max_results = None  # Show all results
+                    max_results = None
                     break
                 elif max_results_input == '':
-                    max_results = 10  # Default
+                    max_results = 10
                     break
                 else:
                     max_results = int(max_results_input)
@@ -321,7 +478,7 @@ def main():
                 print("⚠️  Masukkan angka yang valid atau 'all'!")
                 continue
 
-        print(f"\n🔍 Mencari dengan KMP: '{keyword}'...")
+        print(f"\n🔍 Mencari dengan KMP...")
         start = time.time()
 
         # Load files
@@ -330,10 +487,29 @@ def main():
             print("❌ Tidak ada file pattern matching yang ditemukan!")
             continue
 
-        # Search using KMP
-        results = search_keyword_kmp(keyword, files, applicant_db, cv_mapping)
-        duration = time.time() - start
+        # Search using appropriate method
+        if len(keywords) == 1:
+            # Single keyword search (original method)
+            positions = []
+            for filename, text in files:
+                pos = kmp_search(text, keywords[0].lower())
+                if pos:
+                    name = get_applicant_name_by_cv(applicant_db, cv_mapping, filename.replace(".txt", ""))
+                    positions.append({
+                        "name": name,
+                        "filename": filename,
+                        "count": len(pos),
+                        "positions": pos[:5]
+                    })
+            results = sorted(positions, key=lambda x: x["count"], reverse=True)
+        else:
+            # Multiple keywords search
+            if search_logic == 'and':
+                results = search_multiple_keywords_kmp(keywords, files, applicant_db, cv_mapping)
+            else:
+                results = search_multiple_keywords_or(keywords, files, applicant_db, cv_mapping)
 
+        duration = time.time() - start
         print(f"\n✅ KMP Search completed in {duration:.3f}s ({int(duration * 1000)}ms)")
 
         if results:
@@ -359,7 +535,17 @@ def main():
             for idx, res in enumerate(results_to_show, 1):
                 print(f"\n{idx}. {res['name']}")
                 print(f"   📄 File: {res['filename']}")
-                print(f"   🔢 Kemunculan: {res['count']} kali")
+                
+                # Display match information based on search type
+                if len(keywords) == 1:
+                    print(f"   🔢 Kemunculan: {res['count']} kali")
+                else:
+                    print(f"   🔢 Total kemunculan: {res['total_count']} kali")
+                    print(f"   🎯 Keywords ditemukan: {res['keywords_found']}/{len(keywords)}")
+                    
+                    # Show breakdown by keyword
+                    for keyword, details in res['keyword_details'].items():
+                        print(f"     • '{keyword}': {details['count']} kali")
                 
                 # Determine whether to show context
                 should_show_context = False
@@ -369,7 +555,7 @@ def main():
                 elif show_all_context == 'ask':
                     show_detail = input("   👀 Tampilkan konteks untuk kandidat ini? (y/n): ").lower().strip()
                     should_show_context = (show_detail == 'y')
-                elif idx <= 3:  # Default behavior for top 3
+                elif idx <= 3:
                     show_detail = input("   👀 Tampilkan konteks? (y/n): ").lower().strip()
                     should_show_context = (show_detail == 'y')
                 
@@ -377,12 +563,18 @@ def main():
                 if should_show_context:
                     for fname, text in files:
                         if fname == res['filename']:
-                            contexts = show_context(text, res['positions'], keyword.lower())
-                            for i, ctx in enumerate(contexts, 1):
-                                print(f"   📝 Context {i}: {ctx}")
+                            if len(keywords) == 1:
+                                # Single keyword context (original method)
+                                contexts = show_context(text, res['positions'], keywords[0].lower())
+                                for i, ctx in enumerate(contexts, 1):
+                                    print(f"   📝 Context {i}: {ctx}")
+                            else:
+                                # Multiple keywords context
+                                print("   📝 Context untuk setiap keyword:")
+                                show_context_multiple(text, res['keyword_details'])
                             break
                     
-                    # Add separator for readability when showing multiple contexts
+                    # Add separator for readability
                     if show_all_context is True and idx < len(results_to_show):
                         print("   " + "-"*60)
             
@@ -394,10 +586,16 @@ def main():
                 if show_more == 'y':
                     print(f"\n=== 📋 SEMUA Hasil Pencarian ({len(results)} kandidat) ===")
                     for idx, res in enumerate(results, 1):
-                        print(f"{idx}. {res['name']} - {res['count']} kali ({res['filename']})")
+                        if len(keywords) == 1:
+                            print(f"{idx}. {res['name']} - {res['count']} kali ({res['filename']})")
+                        else:
+                            print(f"{idx}. {res['name']} - {res['total_count']} total, {res['keywords_found']}/{len(keywords)} keywords ({res['filename']})")
                         
         else:
-            print("❌ Tidak ditemukan hasil exact match.")
+            if len(keywords) == 1:
+                print("❌ Tidak ditemukan hasil exact match.")
+            else:
+                print(f"❌ Tidak ditemukan CV yang mengandung {'semua' if search_logic == 'and' else 'salah satu dari'} keyword yang dicari.")
             print("💡 Tips: Coba kata kunci yang lebih umum atau periksa ejaan")
 
     print("\n👋 Terima kasih telah menggunakan CV Search System!")
