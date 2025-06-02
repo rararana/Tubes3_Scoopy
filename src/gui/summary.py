@@ -53,7 +53,7 @@ def create_summary_page(page: ft.Page):
             color="white"
         ),
         width=500,
-        bgcolor="#8B4513",
+        bgcolor="#5A4935",
         padding=5,
         margin=ft.margin.only(left=50),
         alignment=ft.alignment.center_left
@@ -61,9 +61,9 @@ def create_summary_page(page: ft.Page):
     
     personal_info_content = ft.Container(
         content=ft.Column([
-            ft.Text("Birthdate: 05-19-2025", size=12, color="#8B4513"),
-            ft.Text("Address: Masjid Salman ITB", size=12, color="#8B4513"),
-            ft.Text("Phone: 08293282838", size=12, color="#8B4513"),
+            ft.Text("Birthdate: 05-19-2025", size=12, color="#5A4935"),
+            ft.Text("Address: Masjid Salman ITB", size=12, color="#5A4935"),
+            ft.Text("Phone: 08293282838", size=12, color="#5A4935"),
         ]),
         width=500,
         bgcolor="#d2b48c",
@@ -84,27 +84,28 @@ def create_summary_page(page: ft.Page):
                 "Skills",
                 size=16,
                 weight=ft.FontWeight.BOLD,
-                color="#8B4513",
+                color="#5A4935",
             ),
             margin=ft.margin.only(left=50),
         ),
         ft.Row([
+            ## masih hardcode
             ft.Container(
                 content=ft.Text("React", color="white", size=12, weight=ft.FontWeight.BOLD),
-                bgcolor="#8B4513",
+                bgcolor="#7C3B00",
                 margin=ft.margin.only(left=50),
                 padding=ft.padding.symmetric(horizontal=15, vertical=8),
                 border_radius=5
             ),
             ft.Container(
                 content=ft.Text("React", color="white", size=12, weight=ft.FontWeight.BOLD),
-                bgcolor="#8B4513",
+                bgcolor="#7C3B00",
                 padding=ft.padding.symmetric(horizontal=15, vertical=8),
                 border_radius=5
             ),
             ft.Container(
                 content=ft.Text("HTML", color="white", size=12, weight=ft.FontWeight.BOLD),
-                bgcolor="#8B4513",
+                bgcolor="#7C3B00",
                 padding=ft.padding.symmetric(horizontal=15, vertical=8),
                 border_radius=5
             ),
@@ -115,8 +116,8 @@ def create_summary_page(page: ft.Page):
     job_history_box = ft.Container(
         width=500,
         height=200,
-        bgcolor="#e6ddd4",
-        border_radius=5,
+        bgcolor="#DFCAAD",
+        border=ft.border.all(1, "#5A4935"),
         margin=ft.margin.only(left=50),
         content=ft.Stack([
             ft.Container(),  # Empty main content
@@ -138,10 +139,10 @@ def create_summary_page(page: ft.Page):
     job_history = ft.Column([
         ft.Container( 
             content=ft.Text(
-                "Skills",
+                "Job History",
                 size=16,
                 weight=ft.FontWeight.BOLD,
-                color="#8B4513",
+                color="#5A4935",
             ),
             margin=ft.margin.only(left=50),
         ),
@@ -152,7 +153,9 @@ def create_summary_page(page: ft.Page):
     education_box = ft.Container(
         width=250,
         height=150,
-        bgcolor="#e6ddd4",
+        bgcolor="#DFCAAD",
+        border=ft.border.all(1, "#5A4935"),
+
     )
     
     education_section = ft.Column([
@@ -160,7 +163,7 @@ def create_summary_page(page: ft.Page):
             "Education",
             size=16,
             weight=ft.FontWeight.BOLD,
-            color="#8B4513"
+            color="#5A4935"
         ),
         education_box
     ], spacing=5)
@@ -169,7 +172,9 @@ def create_summary_page(page: ft.Page):
     interest_box = ft.Container(
         width=250,
         height=150,
-        bgcolor="#e6ddd4",
+        bgcolor="#DFCAAD",
+        border=ft.border.all(1, "#5A4935"),
+
     )
     
     interest_section = ft.Column([
@@ -177,7 +182,7 @@ def create_summary_page(page: ft.Page):
             "Interest",
             size=16,
             weight=ft.FontWeight.BOLD,
-            color="#8B4513"
+            color="#5A4935"
         ),
         interest_box
     ], spacing=5)
@@ -214,7 +219,7 @@ def create_summary_page(page: ft.Page):
     
     main_container = ft.Container(
         content=page_content,
-        bgcolor="#f5f5dc",
+        bgcolor="#F6E7D0",
         expand=True
     )
     
