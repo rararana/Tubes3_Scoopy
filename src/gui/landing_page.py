@@ -1,4 +1,5 @@
 import flet as ft
+from .search_cv import create_search_cv_page
 
 def create_landing_page(page: ft.Page):
     """
@@ -67,6 +68,8 @@ def create_landing_page(page: ft.Page):
                                 weight=ft.FontWeight.W_500,
                             ),
                             shape=ft.RoundedRectangleBorder(radius=2),
+                            shadow_color="#4D3322",
+                            elevation=3,
                         ),
                         on_click=lambda _: on_get_started_click(page),
                     ),
@@ -114,7 +117,16 @@ def create_landing_page(page: ft.Page):
 def on_get_started_click(page: ft.Page):
     """
     Handler ketika tombol Get Started diklik
-    Ganti dengan navigasi ke halaman berikutnya
+    Navigasi ke halaman search CV
     """
     print("Get Started clicked!")
-    pass
+    
+    # Hapus semua kontrol yang ada di halaman
+    page.controls.clear()
+    
+    # Buat dan tambahkan halaman search CV
+    search_cv_container = create_search_cv_page(page)
+    page.add(search_cv_container)
+    
+    # Update tampilan halaman
+    page.update()
