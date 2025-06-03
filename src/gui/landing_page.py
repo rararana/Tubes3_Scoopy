@@ -121,12 +121,9 @@ def on_get_started_click(page: ft.Page):
     """
     print("Get Started clicked!")
     
-    # Hapus semua kontrol yang ada di halaman
     page.controls.clear()
     
-    # Buat dan tambahkan halaman search CV
     search_cv_container = create_search_cv_page(page)
     page.add(search_cv_container)
     
-    # Update tampilan halaman
     page.update()

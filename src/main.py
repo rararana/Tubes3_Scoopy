@@ -8,7 +8,6 @@ def main(page: ft.Page):
     page.padding = 0
     page.spacing = 0
     
-    # Setup routing atau navigation manager di sini
     welcome_view = create_landing_page(page)
     page.add(welcome_view)
 
