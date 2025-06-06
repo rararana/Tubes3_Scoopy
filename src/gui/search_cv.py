@@ -6,6 +6,7 @@ from collections import defaultdict
 from algorithms.boyer_moore import boyer_moore_search
 from algorithms.kmp import kmp_search
 from algorithms.ahocorasick import AhoCorasick, aho_corasick_search
+from gui.summary import create_summary_page
 
 def create_search_cv_page(page: ft.Page):
     """
@@ -474,12 +475,14 @@ def create_search_cv_page(page: ft.Page):
                                 style=ft.ButtonStyle(
                                     color="#8B4513",
                                 ),
+                                on_click=lambda e: show_resume(result),
                             ),
                             ft.TextButton(
                                 text="View CV",
                                 style=ft.ButtonStyle(
                                     color="#8B4513",
                                 ),
+                                on_click=lambda e: show_CV(),
                             ),
                         ],
                         alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
@@ -492,7 +495,26 @@ def create_search_cv_page(page: ft.Page):
             border_radius=8,
             margin=ft.margin.only(bottom=15),
             width=350,
+            
         )
+    
+    def show_resume(result):
+        print("Show Resume clicked!")
+        
+        def go_back_to_search():
+            page.controls.clear()
+            page.add(create_search_cv_page(page))
+            page.update()
+        
+        page.controls.clear()
+        
+        summary_page = create_summary_page(result, on_back_click=go_back_to_search)
+        page.add(summary_page)
+        
+        page.update()
+
+    def show_CV():
+        return 0
     
     def update_results_display(results, search_time_ms):
         """Update the results display"""
