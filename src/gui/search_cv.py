@@ -7,7 +7,12 @@ from algorithms.boyer_moore import boyer_moore_search
 from algorithms.kmp import kmp_search
 from algorithms.ahocorasick import AhoCorasick, aho_corasick_search
 from gui.summary import create_summary_page
+from gui.summary import load_applicant_by_exact_filename_from_db
 
+from gui.pdf_view import show_cv_pymupdf_gui
+    
+
+    
 def create_search_cv_page(page: ft.Page):
     """
     Membuat halaman pencarian CV ScoopyHire dengan data sebenarnya
@@ -386,6 +391,12 @@ def create_search_cv_page(page: ft.Page):
         match_type_color = "#2E7D32" if result["match_type"] == "exact" else "#FF8F00" if result["match_type"] == "fuzzy" else "#1976D2"
         match_type_text = "Exact Match" if result["match_type"] == "exact" else "Fuzzy Match" if result["match_type"] == "fuzzy" else "Mixed Match"
         
+        # exact path
+        path = result["filename"]
+        path_without_extension = os.path.splitext(path)[0]
+        profile_data = load_applicant_by_exact_filename_from_db(path_without_extension)
+        
+        
         keyword_details = []
         for keyword, details in result["keyword_details"].items():
             match_type_indicator = "🎯" if details["type"] == "exact" else "🔍"
@@ -482,7 +493,7 @@ def create_search_cv_page(page: ft.Page):
                                 style=ft.ButtonStyle(
                                     color="#8B4513",
                                 ),
-                                on_click=lambda e: show_CV(),
+                                on_click=lambda e: show_cv_pymupdf_gui(profile_data.get("cv_path")),
                             ),
                         ],
                         alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
@@ -512,9 +523,6 @@ def create_search_cv_page(page: ft.Page):
         page.add(summary_page)
         
         page.update()
-
-    def show_CV():
-        return 0
     
     def update_results_display(results, search_time_ms):
         """Update the results display"""
