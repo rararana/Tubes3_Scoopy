@@ -2,6 +2,7 @@ import flet as ft
 import os
 import re
 import time
+import mysql.connector
 from collections import defaultdict
 from algorithms.boyer_moore import boyer_moore_search
 from algorithms.kmp import kmp_search
@@ -270,19 +271,55 @@ def create_search_cv_page(page: ft.Page):
         return matches
     
     def get_applicant_name_by_cv(filename):
-        """Get applicant name from database by CV filename"""
-        clean_filename = filename.replace(".txt", "")
-        if clean_filename in cv_mapping:
-            applicant_id = cv_mapping[clean_filename]['applicant_id']
-            role = cv_mapping[clean_filename]['role']
-            
-            if applicant_id in applicant_db:
-                applicant = applicant_db[applicant_id]
-                return f"{applicant['full_name']} ({role})"
-            else:
-                return f"ID_{applicant_id} ({role})"
+        """Get applicant name from MySQL database by CV filename"""
+        DB_CONFIG = {
+            "host": "localhost",
+            "user": "ats_user",
+            "password": "Ats_Pass11",
+            "database": "cv_ats"
+        }
         
-        return f"Unknown ({filename})"
+        try:
+            conn = mysql.connector.connect(**DB_CONFIG)
+            cursor = conn.cursor(dictionary=True)
+            
+            # Remove .txt extension if present
+            clean_filename = filename.replace(".txt", "")
+            
+            query = """
+            SELECT
+                ap.first_name,
+                ap.last_name,
+                ad.application_role
+            FROM
+                ApplicantProfile ap
+            JOIN
+                ApplicationDetail ad ON ap.applicant_id = ad.applicant_id
+            WHERE
+                REPLACE(SUBSTRING_INDEX(ad.cv_path, '/', -1), '.pdf', '') = %s
+            LIMIT 1;
+            """
+            
+            cursor.execute(query, (clean_filename,))
+            result = cursor.fetchone()
+            
+            if result:
+                full_name = f"{result['first_name']} {result['last_name']}"
+                role = result['application_role']
+                return f"{full_name} ({role})"
+            else:
+                return f"Unknown ({filename})"
+                
+        except mysql.connector.Error as err:
+            print(f"Database error: {err}")
+            return f"Unknown ({filename})"
+        except Exception as e:
+            print(f"An unexpected error occurred: {e}")
+            return f"Unknown ({filename})"
+        finally:
+            if 'conn' in locals() and conn.is_connected():
+                cursor.close()
+                conn.close()
     
     def search_keywords(keywords_input, algorithm, max_results_count):
         """Main search function with exact and fuzzy matching"""
