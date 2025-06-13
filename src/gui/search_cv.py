@@ -283,7 +283,6 @@ def create_search_cv_page(page: ft.Page):
             conn = mysql.connector.connect(**DB_CONFIG)
             cursor = conn.cursor(dictionary=True)
             
-            # Remove .txt extension if present
             clean_filename = filename.replace(".txt", "")
             
             query = """
@@ -323,14 +322,22 @@ def create_search_cv_page(page: ft.Page):
     
     def search_keywords(keywords_input, algorithm, max_results_count):
         """Main search function with exact and fuzzy matching"""
-        nonlocal search_results
-        
         if not pattern_files:
-            return []
-        
+            return {
+                "results": [],
+                "exact_time_ms": 0,
+                "fuzzy_time_ms": 0,
+                "cv_count": 0
+            }
+
         keywords = [kw.strip().lower() for kw in keywords_input.split(',') if kw.strip()]
         if not keywords:
-            return []
+            return {
+                "results": [],
+                "exact_time_ms": 0,
+                "fuzzy_time_ms": 0,
+                "cv_count": len(pattern_files)
+            }
         
         algorithm_map = {'KMP': 'kmp', 'BM': 'bm', 'AC': 'ac'}
         algo_code = algorithm_map.get(algorithm, 'kmp')
@@ -338,6 +345,7 @@ def create_search_cv_page(page: ft.Page):
         results = []
         
         print(f"Performing exact matching with {algorithm}...")
+        exact_start_time = time.time()
         
         for filename, text in pattern_files:
             text_lower = text.lower()
@@ -361,19 +369,23 @@ def create_search_cv_page(page: ft.Page):
                     "filename": filename,
                     "total_matches": total_matches,
                     "keywords_found": len(keyword_results),
-                    "keyword_details": keyword_results,  # Pastikan ini ada
+                    "keyword_details": keyword_results,
                     "match_type": "exact"
                 })
 
-        # Fuzzy search logic (sama seperti sebelumnya)
+        exact_end_time = time.time()
+        exact_time_ms = int((exact_end_time - exact_start_time) * 1000)
+
         exact_keywords = set()
         for result in results:
             exact_keywords.update(result['keyword_details'].keys())
         
         fuzzy_keywords = [kw for kw in keywords if kw not in exact_keywords]
+        fuzzy_time_ms = 0
         
         if fuzzy_keywords:
             print(f"Performing fuzzy matching for: {', '.join(fuzzy_keywords)}")
+            fuzzy_start_time = time.time()
             
             fuzzy_results = []
             for filename, text in pattern_files:
@@ -411,42 +423,45 @@ def create_search_cv_page(page: ft.Page):
                             "filename": filename,
                             "total_matches": fuzzy_total_matches,
                             "keywords_found": len(fuzzy_keyword_results),
-                            "keyword_details": fuzzy_keyword_results,  # Pastikan ini ada
+                            "keyword_details": fuzzy_keyword_results,
                             "match_type": "fuzzy"
                         })
             
             results.extend(fuzzy_results)
-        
+            fuzzy_end_time = time.time()
+            fuzzy_time_ms = int((fuzzy_end_time - fuzzy_start_time) * 1000)
+
         results.sort(key=lambda x: (x["keywords_found"], x["total_matches"]), reverse=True)
         
         if max_results_count and max_results_count > 0:
             results = results[:max_results_count]
         
-        return results
-    
+        return {
+            "results": results,
+            "exact_time_ms": exact_time_ms,
+            "fuzzy_time_ms": fuzzy_time_ms,
+            "cv_count": len(pattern_files)
+        }
+
     def create_result_card(result):
         """Create card for search result"""
         match_type_color = "#2E7D32" if result["match_type"] == "exact" else "#FF8F00" if result["match_type"] == "fuzzy" else "#1976D2"
         match_type_text = "Exact Match" if result["match_type"] == "exact" else "Fuzzy Match" if result["match_type"] == "fuzzy" else "Mixed Match"
         
-        # Get profile data
         path = result["filename"]
         path_without_extension = os.path.splitext(path)[0]
         profile_data = load_applicant_by_exact_filename_from_db(path_without_extension)
         
-        # Create safe CV path
         cv_path = profile_data.get("cv_path", "") if profile_data else ""
         
         def safe_show_cv(e):
             """Safely show CV with error handling and user feedback"""
             if cv_path and os.path.exists(cv_path):
                 try:
-                    # Show loading message
                     page.open(ft.SnackBar(
                         content=ft.Text("Opening PDF... Please wait")
                     ))
                     
-                    # Check available viewers first
                     from gui.pdf_view import check_pdf_viewers_available
                     available_viewers = check_pdf_viewers_available()
                     
@@ -454,12 +469,10 @@ def create_search_cv_page(page: ft.Page):
                         print(f"Available PDF viewers: {', '.join(available_viewers)}")
                         show_cv_threaded(cv_path)
                         
-                        # Success message
                         page.open(ft.SnackBar(
                             content=ft.Text(f"PDF opened with {available_viewers[0]}")
                         ))
                     else:
-                        # No viewers available, show text preview
                         print("No PDF viewers available, showing text preview in console")
                         show_pdf_info(cv_path)
                         
@@ -469,7 +482,7 @@ def create_search_cv_page(page: ft.Page):
                         
                 except Exception as ex:
                     print(f"Error showing CV: {ex}")
-                    show_pdf_info(cv_path)  # Fallback to text info
+                    show_pdf_info(cv_path)
                     
                     page.open(ft.SnackBar(
                         content=ft.Text("PDF viewer error. Check console for preview.")
@@ -478,14 +491,12 @@ def create_search_cv_page(page: ft.Page):
                 page.open(ft.SnackBar(
                     content=ft.Text(f"CV file not found: {cv_path if cv_path else 'No path'}")
                 ))
-        # Create keyword details display
         keyword_details = []
         if 'keyword_details' in result:
             for keyword, details in result['keyword_details'].items():
-                match_type_icon = "🎯" if details.get('type') == 'exact' else "🔍" if details.get('type') == 'fuzzy' else "📊"
                 keyword_details.append(
                     ft.Row([
-                        ft.Text(f"{match_type_icon} {keyword}", size=12, color="#5A4935", weight=ft.FontWeight.W_500),
+                        ft.Text(f"{keyword}", size=12, color="#5A4935", weight=ft.FontWeight.W_500),
                         ft.Text(f"{details['count']} matches", size=12, color="#8B4513")
                     ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN)
                 )
@@ -498,7 +509,7 @@ def create_search_cv_page(page: ft.Page):
                             ft.Row(
                                 [
                                     ft.Text(
-                                        result["name"].split(' (')[0],  # Name without role
+                                        result["name"].split(' (')[0],
                                         size=20,
                                         color="#5D2E0A",
                                         weight=ft.FontWeight.BOLD,
@@ -596,7 +607,7 @@ def create_search_cv_page(page: ft.Page):
         
         page.update()
     
-    def update_results_display(results, search_time_ms):
+    def update_results_display(results, exact_time_ms, fuzzy_time_ms, cv_count):
         """Update the results display"""
         nonlocal has_searched
         
@@ -628,12 +639,29 @@ def create_search_cv_page(page: ft.Page):
                 alignment=ft.MainAxisAlignment.CENTER,
             )
             
-            scan_time = ft.Container(
-                content=ft.Text(
-                    f"Scanned in {search_time_ms} ms using {selected_algorithm}",
+            # Menentukan jumlah CV yang dipindai untuk fuzzy match
+            fuzzy_cv_scanned = cv_count if fuzzy_time_ms > 0 else 0
+            
+            summary_items = [
+                ft.Text(
+                    f"Exact Match: {cv_count} CVs scanned in {exact_time_ms}ms.",
                     size=14,
                     color="#8B4513",
                     text_align=ft.TextAlign.CENTER,
+                ),
+                ft.Text(
+                    f"Fuzzy Match: {fuzzy_cv_scanned} CVs scanned in {fuzzy_time_ms}ms.",
+                    size=14,
+                    color="#8B4513",
+                    text_align=ft.TextAlign.CENTER,
+                )
+            ]
+
+            summary_container = ft.Container(
+                content=ft.Column(
+                    summary_items,
+                    horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                    spacing=5,
                 ),
                 margin=ft.margin.only(top=10, bottom=20),
             )
@@ -645,7 +673,7 @@ def create_search_cv_page(page: ft.Page):
                 spacing=20,
             )
             
-            results_container.controls.extend([results_header, scan_time, results_grid])
+            results_container.controls.extend([results_header, summary_container, results_grid])
         else:
             no_results = ft.Container(
                 content=ft.Column([
@@ -702,12 +730,14 @@ def create_search_cv_page(page: ft.Page):
             if not db_loaded or not files_loaded:
                 page.open(ft.SnackBar(content=ft.Text("Error loading data! Check file paths.")))
                 return
-        
-        start_time = time.time()
-        results = search_keywords(keywords_input, selected_algorithm, max_results_value)
-        end_time = time.time()
-        search_time_ms = int((end_time - start_time) * 1000)
-        update_results_display(results, search_time_ms)
+
+        search_data = search_keywords(keywords_input, selected_algorithm, max_results_value)
+        update_results_display(
+            search_data["results"],
+            search_data["exact_time_ms"],
+            search_data["fuzzy_time_ms"],
+            search_data["cv_count"]
+        )
     
     search_container = ft.Container(
         content=ft.Column(
