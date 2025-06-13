@@ -381,12 +381,15 @@ def create_summary_page(result, on_back_click=None):
         padding=ft.padding.only(right=20, bottom=20),
     )
     
-    page_content = ft.Column([
-        header,
-        ft.Container(height=30),
-        main_row,
-        footer 
-    ])
+    page_content = ft.Column(
+        [
+            header,
+            ft.Container(height=30),
+            main_row,
+            footer
+        ],
+        scroll=ft.ScrollMode.AUTO,  # Tambahkan scroll di sini
+    )
     
     main_container = ft.Container(
         content=page_content,
