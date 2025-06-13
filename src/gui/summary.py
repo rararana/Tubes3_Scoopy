@@ -78,12 +78,11 @@ def load_applicant_by_exact_filename_from_db(file_number):
 
 def parse_cv_text_file(filename: str) -> dict:
     parsed_data = {
-        "Summary": "",
-        "Skills": "",
-        "Accomplishments": "",
         "Experience": "",
-        "Education and Training": ""
+        "Education": "",
+        "Skills": ""
     }
+
     filename = "data/regex_data/" + filename
 
     if not os.path.exists(filename):
@@ -94,41 +93,71 @@ def parse_cv_text_file(filename: str) -> dict:
         with open(filename, 'r', encoding='utf-8') as f:
             content = f.read()
 
-        # Define section headers
-        sections_headers = [
-            "Summary",
-            "Skills",
-            "Accomplishments",
-            "Experience",
-            "Education"
-        ]
+        section_split_pattern = r'\n(?=^[A-Z]+[\w\s&/,-]*:?\s*$)'
 
-        current_section = None
-        lines = content.split('\n')
-        section_content = []
+        sections = re.split(section_split_pattern, content, flags=re.MULTILINE)
 
-        for line in lines:
-            stripped_line = line.strip()
-            found_header = False
-            for header in sections_headers:
-                if stripped_line.lower().startswith(header.lower()):
-                    if current_section: 
-                        parsed_data[current_section] = '\n'.join(section_content).strip()
-                    current_section = header
-                    section_content = []
-                    found_header = True
-                    break 
-            
-            if not found_header and current_section:
-                section_content.append(line) 
+        current_section_key = None
+        temp_content_buffer = []
 
-        if current_section:
-            parsed_data[current_section] = '\n'.join(section_content).strip()
+        for section in sections:
+            section = section.strip()
+            if not section:
+                continue
+
+            lines = section.split('\n')
+            if not lines:
+                continue
+
+            header = lines[0].strip()
+            content_lines = lines[1:] if len(lines) > 1 else []
+            section_content = '\n'.join(content_lines).strip()
+
+            header_lower = header.lower().replace(':', '').strip()
+            matched_key = None 
+
+            if re.search(r'\b(experience|work\s+experience|employment|professional\s+experience|career|work\s+history|job\s+history)\b', header_lower):
+                matched_key = "Experience"
+            elif re.search(r'\b(education|training|qualifications?|academic|certifications?|degrees?|schooling|university|college)\b', header_lower):
+                matched_key = "Education"
+            elif re.search(r'\b(skills?|technical\s+skills?|core\s+competencies|expertise|competencies|abilities|proficiencies)\b', header_lower):
+                matched_key = "Skills"
+      
+            if matched_key and temp_content_buffer:
+                if current_section_key:
+                    
+                    parsed_data[current_section_key] += '\n' + '\n'.join(temp_content_buffer).strip()
+               
+                temp_content_buffer = [] 
+
+            if matched_key:
+                if matched_key == "Experience" and parsed_data["Experience"]:
+                    parsed_data[matched_key] += "\n\n" + section_content
+                else:
+                    parsed_data[matched_key] = section_content
+                current_section_key = matched_key 
+            else:
+              
+                if current_section_key:
+                    parsed_data[current_section_key] += '\n' + header
+                    if section_content:
+                        parsed_data[current_section_key] += '\n' + section_content
+                else:
+  
+                    temp_content_buffer.append(header)
+                    if section_content:
+                        temp_content_buffer.append(section_content)
+
+        if temp_content_buffer and current_section_key:
+            parsed_data[current_section_key] += '\n' + '\n'.join(temp_content_buffer).strip()
+
 
     except Exception as e:
         print(f"An error occurred while parsing CV text file {filename}: {e}")
 
+    print("Parsed CV Data:", parsed_data)
     return parsed_data
+
 
 def create_summary_page(result, on_back_click=None):
     path = result["filename"]
@@ -282,7 +311,11 @@ def create_summary_page(result, on_back_click=None):
     
     # job section
     job_box = ft.Container(
-        content=ft.Column(job_entries, spacing=5), 
+        content=ft.Column(
+            job_entries,
+            spacing=5,
+            scroll=ft.ScrollMode.ADAPTIVE 
+        ),
         width=600,
         height=400,
         bgcolor="#DFCAAD",
@@ -296,7 +329,7 @@ def create_summary_page(result, on_back_click=None):
         controls=[
             ft.Container(
                 ft.Text(
-                    "Job History",
+                    "Work History",
                     size=16,
                     weight=ft.FontWeight.BOLD,
                     color="#5A4935"
@@ -322,7 +355,11 @@ def create_summary_page(result, on_back_click=None):
     
     # Education section
     education_box = ft.Container(
-        content=ft.Column(education_entries, spacing=5),  
+        content=ft.Column(
+            education_entries,
+            spacing=5,
+            scroll=ft.ScrollMode.ADAPTIVE 
+        ),
         width=400,
         height=300,
         bgcolor="#DFCAAD",
