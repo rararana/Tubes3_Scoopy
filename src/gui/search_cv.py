@@ -20,7 +20,7 @@ def create_search_cv_page(page: ft.Page):
     has_searched = False
 
     keywords_field = ft.TextField(
-        hint_text="Enter your keywords...",
+        hint_text="Enter your keywords (comma separated)...",
         border_color="#5D2E0A",
         border_width=2,
         bgcolor="transparent",
