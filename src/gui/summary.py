@@ -1,5 +1,4 @@
 import flet as ft
-import json
 import re
 import os
 import mysql.connector
@@ -60,8 +59,7 @@ def parse_cv_text_file(filename: str) -> dict:
         current_section = None
         for line in content.split('\n'):
             line_stripped = line.strip().lower().replace(":", "")
-            
-            # Simple header detection
+
             if any(keyword in line_stripped for keyword in ["experience", "work history", "employment"]) and len(line_stripped.split()) < 4:
                 current_section = "Experience"
             elif any(keyword in line_stripped for keyword in ["education", "training"]) and len(line_stripped.split()) < 4:
@@ -69,13 +67,11 @@ def parse_cv_text_file(filename: str) -> dict:
             elif "skills" in line_stripped and len(line_stripped.split()) < 4:
                 current_section = "Skills"
             elif current_section:
-                # Append line to the current section
                 parsed_data[current_section] += line + "\n"
 
     except Exception as e:
         print(f"Error parsing {filename}: {e}")
     
-    # Clean up trailing spaces
     for key in parsed_data:
         parsed_data[key] = parsed_data[key].strip()
 
@@ -116,9 +112,9 @@ def create_summary_page(result, on_back_click=None):
         ),
         ft.Container(
             content=ft.Column([
-                ft.Text(f"Birthdate: {date_of_birth}", size=12, color="#5A4935"),
-                ft.Text(f"Address: {address}", size=12, color="#5A4935"),
-                ft.Text(f"Phone: {phone_number}", size=12, color="#5A4935"),
+                ft.Text(f"Birthdate: {date_of_birth}", size=12, color="#5A4935", weight=ft.FontWeight.BOLD),
+                ft.Text(f"Address: {address}", size=12, color="#5A4935", weight=ft.FontWeight.BOLD),
+                ft.Text(f"Phone: {phone_number}", size=12, color="#5A4935", weight=ft.FontWeight.BOLD),
             ], spacing=5),
             bgcolor="#DFCAAD", padding=8, border=ft.border.all(1, "#5A4935")
         )
@@ -142,17 +138,16 @@ def create_summary_page(result, on_back_click=None):
             ft.Text(title, size=20, weight=ft.FontWeight.BOLD, color="#5A4935"),
             ft.Container(
                 content=ft.Column(
-                    [ft.Text(text_content, size=12, color="#5A4935")],
+                    [ft.Text(text_content, size=12, color="#5A4935", weight=ft.FontWeight.BOLD)],
                     scroll=ft.ScrollMode.AUTO
                 ),
                 padding=15, 
-                border=ft.border.all(1, "#5A4935"), # Border disesuaikan
+                border=ft.border.all(1, "#5A4935"), 
                 bgcolor="#DFCAAD",
                 height=height,
             )
         ], spacing=10)
 
-    # Tinggi disesuaikan untuk keseimbangan visual
     job_section = create_info_box("Job history", experience_text, height=200) 
     education_section = create_info_box("Education", education_text, height=430)
     
@@ -185,7 +180,7 @@ def create_summary_page(result, on_back_click=None):
                 content=ft.Row([back_button], alignment=ft.MainAxisAlignment.END),
                 padding=ft.padding.only(right=50, bottom=20, top=20)
             )
-        ], scroll=ft.ScrollMode.AUTO), # Scrollable page
+        ], scroll=ft.ScrollMode.AUTO),
         bgcolor="#F6E7D0",
         expand=True
     )
