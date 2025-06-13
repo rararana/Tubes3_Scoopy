@@ -594,17 +594,18 @@ def create_search_cv_page(page: ft.Page):
     
     def show_resume(result):
         print("Show Resume clicked!")
+
+        summary_view = None 
+        def go_back_to_search(e):
+            if summary_view in page.controls:
+                page.controls.remove(summary_view)
         
-        def go_back_to_search():
-            page.controls.clear()
-            page.add(create_search_cv_page(page))
+            search_container.visible = True
             page.update()
-        
-        page.controls.clear()
-        
-        summary_page = create_summary_page(result, on_back_click=go_back_to_search)
-        page.add(summary_page)
-        
+
+        summary_view = create_summary_page(result, on_back_click=go_back_to_search)
+        search_container.visible = False
+        page.add(summary_view)
         page.update()
     
     def update_results_display(results, exact_time_ms, fuzzy_time_ms, cv_count):

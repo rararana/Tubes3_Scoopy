@@ -153,7 +153,7 @@ def create_summary_page(result, on_back_click=None):
     back_button = ft.ElevatedButton(
         "Back to Search",
         icon=ft.Icons.ARROW_BACK,
-        on_click=lambda e: on_back_click() if on_back_click else e.page.go("/"),
+        on_click=lambda e: on_back_click(e) if on_back_click else e.page.go("/"),
         style=ft.ButtonStyle(
             bgcolor="#5A4935",
             color="white",
