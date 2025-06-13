@@ -2,7 +2,6 @@ import flet as ft
 import json
 import re
 import os
-import os
 import mysql.connector # perlu install
 
 def load_applicant_by_exact_filename_from_db(file_number):
@@ -25,7 +24,7 @@ def load_applicant_by_exact_filename_from_db(file_number):
 
         query = """
         SELECT
-            ap.id AS applicant_id,
+            ap.applicant_id,
             ap.first_name,
             ap.last_name,
             ap.date_of_birth,
@@ -36,7 +35,7 @@ def load_applicant_by_exact_filename_from_db(file_number):
         FROM
             ApplicantProfile ap
         JOIN
-            ApplicationDetail ad ON ap.id = ad.applicant_id
+            ApplicationDetail ad ON ap.applicant_id = ad.applicant_id
         WHERE
             REPLACE(SUBSTRING_INDEX(ad.cv_path, '/', -1), '.pdf', '') = %s
         LIMIT 1;

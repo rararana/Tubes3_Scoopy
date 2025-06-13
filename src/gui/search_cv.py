@@ -9,7 +9,7 @@ from algorithms.ahocorasick import AhoCorasick, aho_corasick_search
 from gui.summary import create_summary_page
 from gui.summary import load_applicant_by_exact_filename_from_db
 
-from gui.pdf_view import show_cv_pymupdf_gui
+from gui.pdf_view import show_cv_threaded, show_pdf_info
     
 
     
@@ -324,10 +324,11 @@ def create_search_cv_page(page: ft.Page):
                     "filename": filename,
                     "total_matches": total_matches,
                     "keywords_found": len(keyword_results),
-                    "keyword_details": keyword_results,
+                    "keyword_details": keyword_results,  # Pastikan ini ada
                     "match_type": "exact"
                 })
 
+        # Fuzzy search logic (sama seperti sebelumnya)
         exact_keywords = set()
         for result in results:
             exact_keywords.update(result['keyword_details'].keys())
@@ -373,7 +374,7 @@ def create_search_cv_page(page: ft.Page):
                             "filename": filename,
                             "total_matches": fuzzy_total_matches,
                             "keywords_found": len(fuzzy_keyword_results),
-                            "keyword_details": fuzzy_keyword_results,
+                            "keyword_details": fuzzy_keyword_results,  # Pastikan ini ada
                             "match_type": "fuzzy"
                         })
             
@@ -391,22 +392,66 @@ def create_search_cv_page(page: ft.Page):
         match_type_color = "#2E7D32" if result["match_type"] == "exact" else "#FF8F00" if result["match_type"] == "fuzzy" else "#1976D2"
         match_type_text = "Exact Match" if result["match_type"] == "exact" else "Fuzzy Match" if result["match_type"] == "fuzzy" else "Mixed Match"
         
-        # exact path
+        # Get profile data
         path = result["filename"]
         path_without_extension = os.path.splitext(path)[0]
         profile_data = load_applicant_by_exact_filename_from_db(path_without_extension)
         
+        # Create safe CV path
+        cv_path = profile_data.get("cv_path", "") if profile_data else ""
         
+        def safe_show_cv(e):
+            """Safely show CV with error handling and user feedback"""
+            if cv_path and os.path.exists(cv_path):
+                try:
+                    # Show loading message
+                    page.open(ft.SnackBar(
+                        content=ft.Text("Opening PDF... Please wait")
+                    ))
+                    
+                    # Check available viewers first
+                    from gui.pdf_view import check_pdf_viewers_available
+                    available_viewers = check_pdf_viewers_available()
+                    
+                    if available_viewers:
+                        print(f"Available PDF viewers: {', '.join(available_viewers)}")
+                        show_cv_threaded(cv_path)
+                        
+                        # Success message
+                        page.open(ft.SnackBar(
+                            content=ft.Text(f"PDF opened with {available_viewers[0]}")
+                        ))
+                    else:
+                        # No viewers available, show text preview
+                        print("No PDF viewers available, showing text preview in console")
+                        show_pdf_info(cv_path)
+                        
+                        page.open(ft.SnackBar(
+                            content=ft.Text("No PDF viewer found. Check console for text preview.")
+                        ))
+                        
+                except Exception as ex:
+                    print(f"Error showing CV: {ex}")
+                    show_pdf_info(cv_path)  # Fallback to text info
+                    
+                    page.open(ft.SnackBar(
+                        content=ft.Text("PDF viewer error. Check console for preview.")
+                    ))
+            else:
+                page.open(ft.SnackBar(
+                    content=ft.Text(f"CV file not found: {cv_path if cv_path else 'No path'}")
+                ))
+        # Create keyword details display
         keyword_details = []
-        for keyword, details in result["keyword_details"].items():
-            match_type_indicator = "🎯" if details["type"] == "exact" else "🔍"
-            keyword_details.append(
-                ft.Text(
-                    f"{match_type_indicator} {keyword}: {details['count']} occurrences",
-                    size=12,
-                    color="#6B4423",
+        if 'keyword_details' in result:
+            for keyword, details in result['keyword_details'].items():
+                match_type_icon = "🎯" if details.get('type') == 'exact' else "🔍" if details.get('type') == 'fuzzy' else "📊"
+                keyword_details.append(
+                    ft.Row([
+                        ft.Text(f"{match_type_icon} {keyword}", size=12, color="#5A4935", weight=ft.FontWeight.W_500),
+                        ft.Text(f"{details['count']} matches", size=12, color="#8B4513")
+                    ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN)
                 )
-            )
         
         return ft.Container(
             content=ft.Column(
@@ -479,34 +524,24 @@ def create_search_cv_page(page: ft.Page):
                     
                     ft.Container(height=15),
                     
-                    ft.Row(
-                        [
-                            ft.TextButton(
-                                text="View Details",
-                                style=ft.ButtonStyle(
-                                    color="#8B4513",
-                                ),
-                                on_click=lambda e: show_resume(result),
-                            ),
-                            ft.TextButton(
-                                text="View CV",
-                                style=ft.ButtonStyle(
-                                    color="#8B4513",
-                                ),
-                                on_click=lambda e: show_cv_pymupdf_gui(profile_data.get("cv_path")),
-                            ),
-                        ],
-                        alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                    ft.Row([
+                    ft.TextButton(
+                        text="View Details",
+                        style=ft.ButtonStyle(color="#8B4513"),
+                        on_click=lambda e: show_resume(result),
                     ),
-                ],
-                spacing=5,
-            ),
+                    ft.TextButton(
+                        text="View CV",
+                        style=ft.ButtonStyle(color="#8B4513"),
+                        on_click=safe_show_cv,
+                    ),
+                ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
+            ], spacing=5),
             bgcolor="#D2B48C",
             padding=20,
             border_radius=8,
             margin=ft.margin.only(bottom=15),
             width=350,
-            
         )
     
     def show_resume(result):
