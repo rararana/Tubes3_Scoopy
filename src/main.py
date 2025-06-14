@@ -1,6 +1,5 @@
 import flet as ft
 from gui.landing_page import create_landing_page
-from gui.summary import create_summary_page
 
 def main(page: ft.Page):
     page.fonts = {
