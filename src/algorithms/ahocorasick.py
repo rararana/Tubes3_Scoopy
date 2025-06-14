@@ -1,168 +1,102 @@
-from collections import deque, defaultdict
+from collections import deque
 
 class AhoCorasick:
     def __init__(self):
-        self.trie = defaultdict(dict)
-        self.failure = {}
-        self.output = defaultdict(list)
+        self.goto_table = {}
+        self.failure_table = {}
+        self.output_table = {}
         self.patterns = []
-        self.node_count = 1
+        self.state_count = 1
+        self._built = False
     
-    def add_pattern(self, pattern):
-        self.patterns.append(pattern)
-        node = 0
+    def add_patterns(self, patterns):
+        for pattern in patterns:
+            if pattern:
+                self.patterns.append(pattern)
         
-        for char in pattern:
-            if char not in self.trie[node]:
-                self.trie[node][char] = self.node_count
-                self.node_count += 1
-            node = self.trie[node][char]
-        
-        self.output[node].append(pattern)
+        self._build_trie()
+        self._built = False
     
-    def build_failure_function(self):
-        # Kalo gagal balik ke failure links
-        self.failure = {0: 0}
+    def _build_trie(self):
+        self.goto_table = {0: {}}
+        self.output_table = {}
+        self.state_count = 1
+        
+        for pattern in self.patterns:
+            state = 0
+            
+            for char in pattern:
+                if char not in self.goto_table[state]:
+                    self.goto_table[state][char] = self.state_count
+                    self.goto_table[self.state_count] = {}
+                    self.state_count += 1
+                
+                state = self.goto_table[state][char]
+            
+            if state not in self.output_table:
+                self.output_table[state] = []
+            self.output_table[state].append(pattern)
+    
+    def _build_failure_and_output(self):
+        if self._built:
+            return
+        
+        self.failure_table = {0: 0}
         queue = deque()
-
-        for char in self.trie[0]:
-            child = self.trie[0][char]
-            self.failure[child] = 0
-            queue.append(child)
-
+        
+        for char, state in self.goto_table[0].items():
+            self.failure_table[state] = 0
+            queue.append(state)
+        
         while queue:
-            current = queue.popleft()
-            for char in self.trie[current]:
-                child = self.trie[current][char]
-                queue.append(child)
-
-                failure_node = self.failure[current]
-
-                while failure_node != 0 and char not in self.trie[failure_node]:
-                    failure_node = self.failure[failure_node]
-
-                if char in self.trie[failure_node] and failure_node != 0:
-                    self.failure[child] = self.trie[failure_node][char]
+            r = queue.popleft()
+            
+            for char, u in self.goto_table[r].items():
+                queue.append(u)
+                
+                state = self.failure_table[r]
+                while state != 0 and char not in self.goto_table[state]:
+                    state = self.failure_table[state]
+                
+                if char in self.goto_table[state]:
+                    self.failure_table[u] = self.goto_table[state][char]
                 else:
-                    self.failure[child] = 0
+                    self.failure_table[u] = 0
+                
+                failure_state = self.failure_table[u]
+                if failure_state in self.output_table:
+                    if u not in self.output_table:
+                        self.output_table[u] = []
+                    self.output_table[u].extend(self.output_table[failure_state])
+        
+        self._built = True
     
     def search(self, text):
-        if not self.patterns:
+        if not self.patterns or not text:
             return []
         
-        self.build_failure_function()
+        self._build_failure_and_output()
         
         results = []
-        current = 0 
+        state = 0
         
         for i, char in enumerate(text):
-            while current != 0 and char not in self.trie[current]:
-                current = self.failure[current]
-
-            if char in self.trie[current]:
-                current = self.trie[current][char]
-
-            # Cek current state dan semua failure state
-            temp_state = current
-            visited = set()
+            while state != 0 and char not in self.goto_table[state]:
+                state = self.failure_table[state]
             
-            while temp_state != 0 and temp_state not in visited:
-                visited.add(temp_state)
-
-                for pattern in self.output[temp_state]:
+            if char in self.goto_table[state]:
+                state = self.goto_table[state][char]
+            
+            if state in self.output_table:
+                for pattern in self.output_table[state]:
                     start_pos = i - len(pattern) + 1
                     results.append((pattern, start_pos, i))
-                
-                temp_state = self.failure[temp_state]
         
         return results
 
 
 def aho_corasick_search(text, patterns):
-    """
-    Mencari multiple patterns dalam text menggunakan Aho-Corasick
-    
-    Args:
-        text: String yang akan dicari
-        patterns: List of strings (pattern yang dicari)
-    
-    Returns:
-        List of tuples (pattern, start_position, end_position)
-    """
     ac = AhoCorasick()
-
-    for pattern in patterns:
-        ac.add_pattern(pattern)
+    ac.add_patterns(patterns)
     
     return ac.search(text)
-
-# if __name__ == "__main__":
-#     # Test case 1: Multiple patterns
-#     text = "ushers"
-#     patterns = ["he", "she", "his", "hers"]
-    
-#     print("=== Test Case 1 ===")
-#     print(f"Text: '{text}'")
-#     print(f"Patterns: {patterns}")
-#     print("Manual check:")
-#     print("  u s h e r s")
-#     print("  0 1 2 3 4 5")
-#     print("  Expected: 'he' at 2-3, 'she' at 1-3, 'hers' at 2-5")
-    
-#     results = aho_corasick_search(text, patterns)
-#     print("Results:")
-#     for pattern, start, end in results:
-#         print(f"  Pattern '{pattern}' found at position {start}-{end}")
-    
-#     print()
-    
-#     # Test case 2: Simple overlapping
-#     text = "abccab"
-#     patterns = ["a", "ab", "bc", "c"]
-    
-#     print("=== Test Case 2 ===")
-#     print(f"Text: '{text}'")
-#     print(f"Patterns: {patterns}")
-    
-#     results = aho_corasick_search(text, patterns)
-#     print("Results:")
-#     for pattern, start, end in results:
-#         print(f"  Pattern '{pattern}' found at position {start}-{end}")
-    
-#     print()
-    
-#     # Test case 3: Classical example
-#     text = "ahishers"
-#     patterns = ["he", "she", "his", "hers"]
-    
-#     print("=== Test Case 3 ===")
-#     print(f"Text: '{text}'")
-#     print(f"Patterns: {patterns}")
-    
-#     results = aho_corasick_search(text, patterns)
-#     print("Results:")
-#     for pattern, start, end in results:
-#         print(f"  Pattern '{pattern}' found at position {start}-{end}")
-    
-#     # Debugging function
-#     def debug_aho_corasick(text, patterns):
-#         print(f"\n=== Debug Info ===")
-#         ac = AhoCorasick()
-#         for pattern in patterns:
-#             ac.add_pattern(pattern)
-#         ac.build_failure_function()
-        
-#         print("Trie structure:")
-#         for node in sorted(ac.trie.keys()):
-#             print(f"  Node {node}: {dict(ac.trie[node])}")
-        
-#         print("Failure links:")
-#         for node in sorted(ac.failure.keys()):
-#             print(f"  Node {node} -> {ac.failure[node]}")
-        
-#         print("Output function:")
-#         for node in sorted(ac.output.keys()):
-#             if ac.output[node]:
-#                 print(f"  Node {node}: {ac.output[node]}")
-    
-#     debug_aho_corasick("ushers", ["he", "she", "his", "hers"])
