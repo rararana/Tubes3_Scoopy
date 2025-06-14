@@ -21,7 +21,7 @@ class AhoCorasick:
         self.output[node].append(pattern)
     
     def build_failure_function(self):
-        # Failure pake BFS (backtracking kalo ga nemu)
+        # Kalo gagal balik ke failure links
         self.failure = {0: 0}
         queue = deque()
 
