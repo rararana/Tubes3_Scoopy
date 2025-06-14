@@ -28,7 +28,6 @@ def parse_cv_text_file(filename: str) -> dict:
     Mem-parsing file teks CV menjadi beberapa bagian: Experience, Education, Skills.
     """
     parsed_data = {"Experience": "", "Education": "", "Skills": ""}
-    # Asumsi file parsing ada di folder `regex_data`
     filepath = os.path.join("data", "regex_data", filename)
     
     if not os.path.exists(filepath):
@@ -43,7 +42,6 @@ def parse_cv_text_file(filename: str) -> dict:
         for line in content.split('\n'):
             line_stripped = line.strip().lower().replace(":", "")
 
-            # Logika untuk mendeteksi header bagian
             if any(keyword in line_stripped for keyword in ["experience", "work history", "employment"]) and len(line_stripped.split()) < 4:
                 current_section = "Experience"
             elif any(keyword in line_stripped for keyword in ["education", "training"]) and len(line_stripped.split()) < 4:
@@ -56,7 +54,6 @@ def parse_cv_text_file(filename: str) -> dict:
     except Exception as e:
         print(f"Error parsing {filename}: {e}")
     
-    # Membersihkan spasi ekstra di awal/akhir setiap bagian
     for key in parsed_data:
         parsed_data[key] = parsed_data[key].strip()
 
