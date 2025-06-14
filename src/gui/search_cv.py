@@ -94,7 +94,7 @@ def create_search_cv_page(page: ft.Page):
         
         for btn, name in [(kmp_button, "KMP"), (bm_button, "BM"), (ac_button, "AC")]:
             is_selected = algorithm == name
-            btn.bgcolor = "#8B4513" if is_selected else "transparent"
+            btn.bgcolor = "#8B4513" if is_selected else "#F0DABB"
             btn.content.color = "white" if is_selected else "#5D2E0A"
         page.update()
     
