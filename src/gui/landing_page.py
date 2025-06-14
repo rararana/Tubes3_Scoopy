@@ -64,9 +64,8 @@ def create_landing_page(page: ft.Page):
                                     elevation=0,
                                     side=ft.BorderSide(2, "#4D3322"),
                                     text_style=ft.TextStyle(
-                                        size=18,
-                                        weight=ft.FontWeight.W_600,
-                                        font_family="Newsreader",
+                                        size=16,
+                                        weight=ft.FontWeight.W_500,
                                     ),
                                 ),
                                 on_click=lambda _: on_get_started_click(page),

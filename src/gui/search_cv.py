@@ -3,12 +3,12 @@ import os
 import re
 import time
 import mysql.connector
-from collections import defaultdict
 from algorithms.boyer_moore import boyer_moore_search
 from algorithms.kmp import kmp_search
-from algorithms.ahocorasick import AhoCorasick, aho_corasick_search
+from algorithms.ahocorasick import aho_corasick_search
 from gui.summary import create_summary_page, load_applicant_by_exact_filename_from_db
-from gui.pdf_view import show_cv_threaded, show_pdf_info
+from gui.pdf_view import show_cv_threaded
+from collections import Counter
 
 
 def create_search_cv_page(page: ft.Page):
@@ -23,7 +23,7 @@ def create_search_cv_page(page: ft.Page):
         hint_text="Enter your keywords (comma separated)...",
         border_color="#5D2E0A",
         border_width=2,
-        bgcolor="transparent",
+        bgcolor="#F0DABB",
         height=50,
         text_style=ft.TextStyle(color="#5D2E0A", size=16),
         hint_style=ft.TextStyle(color="#A08C7D", size=16),
@@ -37,7 +37,7 @@ def create_search_cv_page(page: ft.Page):
         height=45,
         border_color="#5D2E0A",
         border_width=2,
-        bgcolor="transparent",
+        bgcolor="#F0DABB",
         text_style=ft.TextStyle(color="#5D2E0A", size=16),
         hint_style=ft.TextStyle(color="#A08C7D", size=16),
         keyboard_type=ft.KeyboardType.NUMBER,
@@ -52,7 +52,7 @@ def create_search_cv_page(page: ft.Page):
                 size=14,
                 weight=ft.FontWeight.W_600,
             ),
-            bgcolor="#8B4513" if is_selected else "transparent",
+            bgcolor="#8B4513" if is_selected else "#F0DABB",
             padding=ft.padding.symmetric(horizontal=20, vertical=10),
             border=ft.border.all(2, "#5D2E0A"),
             height=45,
@@ -63,6 +63,9 @@ def create_search_cv_page(page: ft.Page):
     bm_button = create_algorithm_button("BM", False)
     ac_button = create_algorithm_button("AC", False)
     
+    algorithm_buttons = [kmp_button, bm_button, ac_button]
+    input_controls = [keywords_field, results_input] + algorithm_buttons
+
     results_container = ft.Column(
         controls=[],
         horizontal_alignment=ft.CrossAxisAlignment.CENTER,
@@ -84,6 +87,9 @@ def create_search_cv_page(page: ft.Page):
     
     def select_algorithm(algorithm):
         nonlocal selected_algorithm
+        if has_searched:
+            return
+            
         selected_algorithm = algorithm
         
         for btn, name in [(kmp_button, "KMP"), (bm_button, "BM"), (ac_button, "AC")]:
@@ -95,15 +101,106 @@ def create_search_cv_page(page: ft.Page):
     def reset_search_state():
         nonlocal has_searched
         has_searched = False
+
+        for control in input_controls:
+            control.disabled = False
+
+        for btn in algorithm_buttons:
+            btn.border = ft.border.all(2, "#5D2E0A")
+        
         keywords_field.value = ""
         results_input.value = "10"
         select_algorithm("KMP")
+        
+        search_button.content = None
         search_button.text = "Search CV"
-        # Pastikan lebar tombol tetap saat reset
+        search_button.bgcolor = "#8B4513"
+        search_button.disabled = False
         search_button.width = 650 
+        
         results_container.controls.clear()
         page.update()
 
+    def update_results_display(results, exact_time_ms, fuzzy_time_ms, cv_count):
+        nonlocal has_searched
+        results_container.controls.clear()
+        
+        if results:
+            results_header = ft.Column(
+                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                spacing=5,
+                controls=[
+                    ft.Row(
+                        alignment=ft.MainAxisAlignment.CENTER,
+                        vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                        controls=[
+                            ft.Container(height=2, bgcolor="#5D2E0A", width=200),
+                            ft.Container(
+                                content=ft.Text(f"Found {len(results)} Results", size=24, color="#5D2E0A", weight=ft.FontWeight.BOLD),
+                                margin=ft.margin.symmetric(horizontal=15)
+                            ),
+                            ft.Container(height=2, bgcolor="#5D2E0A", width=200),
+                        ]
+                    ),
+                    ft.Column([
+                        ft.Text(f"Exact Match: {cv_count} CVs scanned in {exact_time_ms}ms.", size=16, color="#8B4513"),
+                        ft.Text(f"Fuzzy Match: {cv_count if fuzzy_time_ms > 0 else 0} CVs scanned in {fuzzy_time_ms}ms.", size=16, color="#8B4513")
+                    ],
+                    horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                    spacing=5,
+                    )
+                ]
+            )
+            
+            results_grid = ft.Row(
+                [create_result_card(result) for result in results],
+                alignment=ft.MainAxisAlignment.CENTER, wrap=True, spacing=20, run_spacing=20
+            )
+            results_container.controls.extend([results_header, ft.Container(height=30), results_grid])
+        else:
+            results_container.controls.append(ft.Text("No Results Found", size=24, color="#5D2E0A"))
+            
+        has_searched = True
+
+        for control in input_controls:
+            control.disabled = True
+            if control in algorithm_buttons:
+                control.border = ft.border.all(2, ft.Colors.with_opacity(0.4, "#8B4513"))
+            
+        search_button.content = None
+        search_button.text = "Search Again"
+        search_button.bgcolor = "#6B421C"
+        search_button.disabled = False
+        search_button.width = 650 
+        page.update()
+    
+    def on_search_click(e):
+        nonlocal has_searched
+        if has_searched:
+            reset_search_state()
+            return
+        
+        keywords_input = keywords_field.value.strip()
+        if not keywords_input:
+            page.open(ft.SnackBar(content=ft.Text("Please enter keywords to search!")))
+            return
+
+        search_button.disabled = True
+        search_button.content = ft.Row(
+            [
+                ft.ProgressRing(width=20, height=20, stroke_width=2.5, color="white"),
+                ft.Text("Searching, please wait...", size=20, weight=ft.FontWeight.W_600, color="white"),
+            ],
+            alignment=ft.MainAxisAlignment.CENTER,
+            spacing=15,
+        )
+        page.update()
+            
+        max_results_value = int(results_input.value) if results_input.value.strip().isdigit() else 10
+        
+        search_data = search_keywords(keywords_input, selected_algorithm.lower(), max_results_value)
+        update_results_display(search_data["results"], search_data["exact_time_ms"], search_data["fuzzy_time_ms"], search_data["cv_count"])
+    
     def search_with_algorithm(text, keyword, algorithm='kmp'):
         if algorithm.lower() == 'kmp':
             return kmp_search(text, keyword)
@@ -131,16 +228,14 @@ def create_search_cv_page(page: ft.Page):
             previous_row = current_row
         return previous_row[-1]
 
-    def fuzzy_search(text, keyword, max_distance=2):
+    def fuzzy_search(text, keyword, max_distance=1):
         words = re.findall(r'\b\w+\b', text.lower())
         keyword_lower = keyword.lower()
-        matches = []
-        for i, word in enumerate(words):
+        found_words_counter = Counter()
+        for word in words:
             if levenshtein_distance(word, keyword_lower) <= max_distance:
-                word_pattern = r'\b' + re.escape(word) + r'\b'
-                for match in re.finditer(word_pattern, text.lower()):
-                    matches.append(match.start())
-        return matches
+                found_words_counter[word] += 1
+        return dict(found_words_counter)
 
     def get_applicant_name_by_cv(filename):
         DB_CONFIG = { "host": "localhost", "user": "ats_user", "password": "Ats_Pass11", "database": "cv_ats"}
@@ -175,7 +270,9 @@ def create_search_cv_page(page: ft.Page):
             return {"results": [], "exact_time_ms": 0, "fuzzy_time_ms": 0, "cv_count": len(pattern_files)}
         
         results = []
-        
+
+        found_keywords_exact = set()
+
         exact_start_time = time.time()
         for filename, text in pattern_files:
             text_lower = text.lower()
@@ -184,7 +281,10 @@ def create_search_cv_page(page: ft.Page):
             for keyword in keywords:
                 positions = search_with_algorithm(text_lower, keyword, algorithm)
                 if positions:
-                    keyword_results[keyword] = {'count': len(positions), 'type': 'exact'}
+                    found_keywords_exact.add(keyword)
+                    if keyword not in keyword_results:
+                        keyword_results[keyword] = {'count': 0, 'type': 'exact'}
+                    keyword_results[keyword]['count'] += len(positions)
                     total_matches += len(positions)
             if keyword_results:
                 name, role = get_applicant_name_by_cv(filename)
@@ -192,32 +292,44 @@ def create_search_cv_page(page: ft.Page):
         
         exact_time_ms = int((time.time() - exact_start_time) * 1000)
 
-        exact_keywords_found = {k for res in results for k in res['keyword_details']}
-        keywords_for_fuzzy = [kw for kw in keywords if kw not in exact_keywords_found]
+        keywords_for_fuzzy = [kw for kw in keywords if kw not in found_keywords_exact]
         fuzzy_time_ms = 0
 
         if keywords_for_fuzzy:
             fuzzy_start_time = time.time()
             for filename, text in pattern_files:
                 text_lower = text.lower()
-                fuzzy_keyword_results = {}
-                fuzzy_total_matches = 0
-                for keyword in keywords_for_fuzzy:
-                    positions = fuzzy_search(text_lower, keyword)
-                    if positions:
-                        fuzzy_keyword_results[keyword] = {'count': len(positions), 'type': 'fuzzy'}
-                        fuzzy_total_matches += len(positions)
                 
-                if fuzzy_keyword_results:
+                all_fuzzy_matches_for_cv = {}
+                total_fuzzy_matches_for_cv = 0
+
+                for keyword in keywords_for_fuzzy:
+                    found_matches = fuzzy_search(text_lower, keyword)
+                    
+                    if found_matches:
+                        for found_word, count in found_matches.items():
+                            if found_word == keyword:
+                                continue
+                            
+                            if found_word not in all_fuzzy_matches_for_cv:
+                                all_fuzzy_matches_for_cv[found_word] = {'count': 0, 'type': 'fuzzy'}
+                            all_fuzzy_matches_for_cv[found_word]['count'] += count
+                            total_fuzzy_matches_for_cv += count
+
+                if all_fuzzy_matches_for_cv:
                     existing_result = next((r for r in results if r['filename'] == filename), None)
                     if existing_result:
-                        existing_result['keyword_details'].update(fuzzy_keyword_results)
-                        existing_result['total_matches'] += fuzzy_total_matches
+                        for word, details in all_fuzzy_matches_for_cv.items():
+                            if word in existing_result['keyword_details']:
+                                existing_result['keyword_details'][word]['count'] += details['count']
+                            else:
+                                existing_result['keyword_details'][word] = details
+                        existing_result['total_matches'] += total_fuzzy_matches_for_cv
                         existing_result['match_type'] = 'mixed'
                     else:
                         name, role = get_applicant_name_by_cv(filename)
-                        results.append({"name": name, "role": role, "filename": filename, "total_matches": fuzzy_total_matches, "keyword_details": fuzzy_keyword_results, "match_type": "fuzzy"})
-            fuzzy_time_ms = int((time.time() - fuzzy_start_time) * 1000)
+                        results.append({"name": name, "role": role, "filename": filename, "total_matches": total_fuzzy_matches_for_cv, "keyword_details": all_fuzzy_matches_for_cv, "match_type": "fuzzy"})
+                fuzzy_time_ms = int((time.time() - fuzzy_start_time) * 1000)
 
         results.sort(key=lambda x: x["total_matches"], reverse=True)
         if max_results_count > 0:
@@ -235,7 +347,7 @@ def create_search_cv_page(page: ft.Page):
             match_type_color = "#FF8F00"
         else:
             match_type_text = "Mixed Match"
-            match_type_color = "#1976D2"
+            match_type_color = "#276DB1"
 
         def show_summary_view(e):
             summary_view = create_summary_page(result, lambda ev: go_back_to_search(summary_view))
@@ -316,67 +428,6 @@ def create_search_cv_page(page: ft.Page):
                 ]
             )
         )
-    
-    def update_results_display(results, exact_time_ms, fuzzy_time_ms, cv_count):
-        nonlocal has_searched
-        results_container.controls.clear()
-        
-        if results:
-            results_header = ft.Column(
-                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                spacing=5,
-                controls=[
-                    ft.Row(
-                        alignment=ft.MainAxisAlignment.CENTER,
-                        vertical_alignment=ft.CrossAxisAlignment.CENTER,
-                        controls=[
-                            ft.Container(height=2, bgcolor="#5D2E0A", width=200),
-                            ft.Container(
-                                content=ft.Text(f"Found {len(results)} Results", size=24, color="#5D2E0A", weight=ft.FontWeight.BOLD),
-                                margin=ft.margin.symmetric(horizontal=15)
-                            ),
-                            ft.Container(height=2, bgcolor="#5D2E0A", width=200),
-                        ]
-                    ),
-                    ft.Column([
-                        ft.Text(f"Exact Match: {cv_count} CVs scanned in {exact_time_ms}ms.", size=16, color="#8B4513"),
-                        ft.Text(f"Fuzzy Match: {cv_count if fuzzy_time_ms > 0 else 0} CVs scanned in {fuzzy_time_ms}ms.", size=16, color="#8B4513")
-                    ],
-                    horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                    spacing=5,
-                    )
-                ]
-            )
-            
-            results_grid = ft.Row(
-                [create_result_card(result) for result in results],
-                alignment=ft.MainAxisAlignment.CENTER, wrap=True, spacing=20, run_spacing=20
-            )
-            results_container.controls.extend([results_header, ft.Container(height=30), results_grid])
-        else:
-            results_container.controls.append(ft.Text("No Results Found", size=24, color="#5D2E0A"))
-            
-        has_searched = True
-        search_button.text = "Search Again"
-        # Memastikan lebar tombol "Search Again" tetap sama
-        search_button.width = 650 
-        page.update()
-
-    def on_search_click(e):
-        nonlocal has_searched
-        if has_searched:
-            reset_search_state()
-            return
-        
-        keywords_input = keywords_field.value.strip()
-        if not keywords_input:
-            page.open(ft.SnackBar(content=ft.Text("Please enter keywords to search!")))
-            return
-            
-        max_results_value = int(results_input.value) if results_input.value.strip().isdigit() else 10
-        
-        search_data = search_keywords(keywords_input, selected_algorithm.lower(), max_results_value)
-        update_results_display(search_data["results"], search_data["exact_time_ms"], search_data["fuzzy_time_ms"], search_data["cv_count"])
 
     def load_all_data():
         nonlocal pattern_files
