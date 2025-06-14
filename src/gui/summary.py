@@ -1,93 +1,24 @@
 import flet as ft
 import re
 import os
-import mysql.connector
 
-def load_applicant_by_exact_filename_from_db(file_number):
-    applicant_data = {} 
-    DB_CONFIG = {
-        "host": "localhost",
-        "user": "ats_user",
-        "password": "Ats_Pass11",
-        "database": "cv_ats"
-    }
-    try:
-        conn = mysql.connector.connect(**DB_CONFIG)
-        cursor = conn.cursor(dictionary=True) 
-        query = """
-        SELECT
-            ap.applicant_id, ap.first_name, ap.last_name, ap.date_of_birth,
-            ap.address, ap.phone_number, ad.application_role, ad.cv_path
-        FROM ApplicantProfile ap
-        JOIN ApplicationDetail ad ON ap.applicant_id = ad.applicant_id
-        WHERE REPLACE(SUBSTRING_INDEX(ad.cv_path, '/', -1), '.pdf', '') = %s
-        LIMIT 1;
-        """
-        cursor.execute(query, (file_number,))
-        result = cursor.fetchone() 
-        if result:
-            applicant_data = {
-                'applicant_id': result['applicant_id'],
-                'first_name': result['first_name'],
-                'last_name': result['last_name'],
-                'full_name': f"{result['first_name']} {result['last_name']}",
-                'date_of_birth': str(result['date_of_birth']), 
-                'address': result['address'],
-                'phone_number': result['phone_number'],
-                'role': result['application_role'],
-                'cv_path': result['cv_path'],
-                'cv_filename': file_number 
-            }
-    except Exception as e:
-        print(f"Database/Unexpected error: {e}")
-    finally:
-        if 'conn' in locals() and conn.is_connected():
-            cursor.close()
-            conn.close()
-    return applicant_data
+from services.database_service import load_applicant_by_exact_filename_from_db
+from services.file_service import parse_cv_text_file
 
-def parse_cv_text_file(filename: str) -> dict:
-    parsed_data = {"Experience": "", "Education": "", "Skills": ""}
-    filepath = os.path.join("data", "regex_data", filename)
-    if not os.path.exists(filepath):
-        print(f"File not found: {filepath}")
-        return parsed_data
-    try:
-        with open(filepath, 'r', encoding='utf-8') as f:
-            content = f.read()
-        
-        current_section = None
-        for line in content.split('\n'):
-            line_stripped = line.strip().lower().replace(":", "")
+def create_summary_page(result: dict, on_back_click=None):
+    """
+    Membuat halaman ringkasan CV.
+    """
+    path_without_extension = os.path.splitext(result["filename"])[0]
 
-            if any(keyword in line_stripped for keyword in ["experience", "work history", "employment"]) and len(line_stripped.split()) < 4:
-                current_section = "Experience"
-            elif any(keyword in line_stripped for keyword in ["education", "training"]) and len(line_stripped.split()) < 4:
-                current_section = "Education"
-            elif "skills" in line_stripped and len(line_stripped.split()) < 4:
-                current_section = "Skills"
-            elif current_section:
-                parsed_data[current_section] += line + "\n"
-
-    except Exception as e:
-        print(f"Error parsing {filename}: {e}")
-    
-    for key in parsed_data:
-        parsed_data[key] = parsed_data[key].strip()
-
-    return parsed_data
-
-def create_summary_page(result, on_back_click=None):
-    path = result["filename"]
-    path_without_extension = os.path.splitext(path)[0]
     profile_data = load_applicant_by_exact_filename_from_db(path_without_extension)
+    cv_content = parse_cv_text_file(result["filename"])
 
     full_name = profile_data.get("full_name", "Unknown Applicant")
     date_of_birth = profile_data.get("date_of_birth", "N/A")
     address = profile_data.get("address", "N/A")
     phone_number = profile_data.get("phone_number", "N/A")
 
-    cv_content = parse_cv_text_file(result["filename"])
     skills_text = cv_content.get("Skills", "No skills listed.")
     experience_text = cv_content.get("Experience", "No experience listed.")
     education_text = cv_content.get("Education", "No education details available.")
@@ -99,8 +30,7 @@ def create_summary_page(result, on_back_click=None):
                 ft.Text("CV Summary", size=48, color="#5D2E0A", weight=ft.FontWeight.BOLD),
                 ft.Container(height=2, bgcolor="#5D2E0A", width=300, margin=ft.margin.symmetric(vertical=5)),
                 ft.Row([ft.Text(c, size=14, color="#5D2E0A") for c in "SCOOPY HIRE"], alignment=ft.MainAxisAlignment.CENTER, spacing=3)
-            ],
-            horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=5),
+            ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=5),
             margin=ft.margin.only(top=30, bottom=40),
         ),
     ])
@@ -141,27 +71,20 @@ def create_summary_page(result, on_back_click=None):
                     [ft.Text(text_content, size=12, color="#5A4935", weight=ft.FontWeight.BOLD)],
                     scroll=ft.ScrollMode.AUTO
                 ),
-                padding=15, 
-                border=ft.border.all(1, "#5A4935"), 
-                bgcolor="#DFCAAD",
-                height=height,
+                padding=15, border=ft.border.all(1, "#5A4935"), bgcolor="#DFCAAD", height=height
             )
         ], spacing=10)
 
-    job_section = create_info_box("Job history", experience_text, height=200) 
+    job_section = create_info_box("Job history", experience_text, height=200)
     education_section = create_info_box("Education", education_text, height=430)
     
     left_column = ft.Column([
-        personal_info_card,
-        ft.Container(height=30),
-        skills_section,
-        ft.Container(height=30),
-        job_section,
+        personal_info_card, ft.Container(height=30),
+        skills_section, ft.Container(height=30),
+        job_section
     ], spacing=0, expand=2)
 
-    right_column = ft.Column([
-        education_section
-    ], spacing=0, expand=1)
+    right_column = ft.Column([education_section], spacing=0, expand=1)
     
     back_button = ft.ElevatedButton(
         "Back to Search", icon=ft.Icons.ARROW_BACK,
@@ -174,15 +97,14 @@ def create_summary_page(result, on_back_click=None):
             header,
             ft.Container(
                 content=ft.Row([left_column, right_column], spacing=40, vertical_alignment=ft.CrossAxisAlignment.START),
-                padding=ft.padding.symmetric(horizontal=50),
+                padding=ft.padding.symmetric(horizontal=50)
             ),
             ft.Container(
                 content=ft.Row([back_button], alignment=ft.MainAxisAlignment.END),
                 padding=ft.padding.only(right=50, bottom=20, top=20)
             )
         ], scroll=ft.ScrollMode.AUTO),
-        bgcolor="#F6E7D0",
-        expand=True
+        bgcolor="#F6E7D0", expand=True
     )
     
     return main_container
