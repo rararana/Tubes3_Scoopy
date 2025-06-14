@@ -249,7 +249,9 @@ def create_search_cv_page(page: ft.Page):
             return {"results": [], "exact_time_ms": 0, "fuzzy_time_ms": 0, "cv_count": len(pattern_files)}
         
         results = []
-        
+
+        found_keywords_exact = set()
+
         exact_start_time = time.time()
         for filename, text in pattern_files:
             text_lower = text.lower()
@@ -258,6 +260,7 @@ def create_search_cv_page(page: ft.Page):
             for keyword in keywords:
                 positions = search_with_algorithm(text_lower, keyword, algorithm)
                 if positions:
+                    found_keywords_exact.add(keyword)
                     if keyword not in keyword_results:
                         keyword_results[keyword] = {'count': 0, 'type': 'exact'}
                     keyword_results[keyword]['count'] += len(positions)
@@ -268,7 +271,7 @@ def create_search_cv_page(page: ft.Page):
         
         exact_time_ms = int((time.time() - exact_start_time) * 1000)
 
-        keywords_for_fuzzy = keywords
+        keywords_for_fuzzy = [kw for kw in keywords if kw not in found_keywords_exact]
         fuzzy_time_ms = 0
 
         if keywords_for_fuzzy:
@@ -305,7 +308,7 @@ def create_search_cv_page(page: ft.Page):
                     else:
                         name, role = get_applicant_name_by_cv(filename)
                         results.append({"name": name, "role": role, "filename": filename, "total_matches": total_fuzzy_matches_for_cv, "keyword_details": all_fuzzy_matches_for_cv, "match_type": "fuzzy"})
-            fuzzy_time_ms = int((time.time() - fuzzy_start_time) * 1000)
+                fuzzy_time_ms = int((time.time() - fuzzy_start_time) * 1000)
 
         results.sort(key=lambda x: x["total_matches"], reverse=True)
         if max_results_count > 0:
@@ -323,7 +326,7 @@ def create_search_cv_page(page: ft.Page):
             match_type_color = "#FF8F00"
         else:
             match_type_text = "Mixed Match"
-            match_type_color = "#1976D2"
+            match_type_color = "#276DB1"
 
         def show_summary_view(e):
             summary_view = create_summary_page(result, lambda ev: go_back_to_search(summary_view))
