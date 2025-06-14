@@ -52,7 +52,7 @@ def create_search_cv_page(page: ft.Page):
                 size=14,
                 weight=ft.FontWeight.W_600,
             ),
-            bgcolor="#8B4513" if is_selected else "transparent",
+            bgcolor="#8B4513" if is_selected else "#F0DABB",
             padding=ft.padding.symmetric(horizontal=20, vertical=10),
             border=ft.border.all(2, "#5D2E0A"),
             height=45,
@@ -63,7 +63,8 @@ def create_search_cv_page(page: ft.Page):
     bm_button = create_algorithm_button("BM", False)
     ac_button = create_algorithm_button("AC", False)
     
-    input_controls = [keywords_field, results_input, kmp_button, bm_button, ac_button]
+    algorithm_buttons = [kmp_button, bm_button, ac_button]
+    input_controls = [keywords_field, results_input] + algorithm_buttons
 
     results_container = ft.Column(
         controls=[],
@@ -103,13 +104,18 @@ def create_search_cv_page(page: ft.Page):
 
         for control in input_controls:
             control.disabled = False
+
+        for btn in algorithm_buttons:
+            btn.border = ft.border.all(2, "#5D2E0A")
         
         keywords_field.value = ""
         results_input.value = "10"
         select_algorithm("KMP")
         
+        search_button.content = None
         search_button.text = "Search CV"
         search_button.bgcolor = "#8B4513"
+        search_button.disabled = False
         search_button.width = 650 
         
         results_container.controls.clear()
@@ -158,9 +164,13 @@ def create_search_cv_page(page: ft.Page):
 
         for control in input_controls:
             control.disabled = True
+            if control in algorithm_buttons:
+                control.border = ft.border.all(2, ft.Colors.with_opacity(0.4, "#8B4513"))
             
+        search_button.content = None
         search_button.text = "Search Again"
         search_button.bgcolor = "#6B421C"
+        search_button.disabled = False
         search_button.width = 650 
         page.update()
     
@@ -174,6 +184,17 @@ def create_search_cv_page(page: ft.Page):
         if not keywords_input:
             page.open(ft.SnackBar(content=ft.Text("Please enter keywords to search!")))
             return
+
+        search_button.disabled = True
+        search_button.content = ft.Row(
+            [
+                ft.ProgressRing(width=20, height=20, stroke_width=2.5, color="white"),
+                ft.Text("Searching, please wait...", size=20, weight=ft.FontWeight.W_600, color="white"),
+            ],
+            alignment=ft.MainAxisAlignment.CENTER,
+            spacing=15,
+        )
+        page.update()
             
         max_results_value = int(results_input.value) if results_input.value.strip().isdigit() else 10
         
