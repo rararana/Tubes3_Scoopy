@@ -107,15 +107,6 @@ source venv/bin/activate
 python3 src/main.py
 ```
 
-### **3. Menjalankan Terminal Version (Optional)**
-```bash
-# KMP Algorithm
-python3 src/search_kmp_terminal.py
-
-# Aho-Corasick Algorithm  
-python3 src/search_ahocorasick_terminal.py
-```
-
 ---
 
 ## 📱 Cara Penggunaan
