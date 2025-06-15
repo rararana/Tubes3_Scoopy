@@ -77,12 +77,12 @@ sudo mysql -u root -p
 # 2. Create database dan user
 CREATE DATABASE cv_ats;
 CREATE USER 'ats_user'@'localhost' IDENTIFIED BY 'Ats_Pass11';
-GRANT ALL PRIVILEGES ON cv_ats.* TO 'ats_user'@'localhost';
+GRANT ALL PRIVILEGES ON tubes3_seeding.* TO 'ats_user'@'localhost';
 FLUSH PRIVILEGES;
 EXIT;
 
 # 3. Import database schema dan data
-mysql -u ats_user -p cv_ats < src/database/init_db.sql
+mysql -u ats_user -p tubes3_seeding < src/database/tubes3_seeding.sql
 ```
 
 ---

@@ -1,6 +1,6 @@
 import mysql.connector
 
-DB_CONFIG = { "host": "localhost", "user": "ats_user", "password": "Ats_Pass11", "database": "cv_ats"}
+DB_CONFIG = { "host": "localhost", "user": "ats_user", "password": "Ats_Pass11", "database": "tubes3_seeding"}
 
 def get_applicant_name_by_cv(filename: str) -> tuple[str, str]:
     """
